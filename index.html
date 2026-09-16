@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Spell & Unlock Mini-Games</title>
+  <style>
+    body { font-family: sans-serif; background: #f0f8ff; text-align: center; margin: 0; padding: 20px; }
+    .card { background: white; border-radius: 12px; padding: 20px; max-width: 600px; margin: 0 auto 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    button { background: #4caf50; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 6px; cursor: pointer; margin: 5px; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    input { font-size: 18px; padding: 8px; width: 60%; margin-bottom: 10px; }
+    #canvas { border: 2px solid #333; background: #fff; margin-top: 10px; cursor: crosshair; }
+    .hidden { display: none; }
+    .star-count { font-size: 24px; color: #ff9800; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="star-count">⭐ Stars: <span id="stars">0</span></div>
+    <div id="timer-display" style="color: red; font-weight: bold; margin-top: 5px;"></div>
+  </div>
+
+  <!-- SPELLING & WRITING TASK SECTION -->
+  <div id="task-section" class="card">
+    <h2>✍️ Words Practice Task</h2>
+    <p>Complete all words to earn stars and unlock mini-games!</p>
+    <h1 id="word-prompt" style="letter-spacing: 2px;"></h1>
+    <p>Type or rewrite the word below:</p>
+    <input type="text" id="word-input" placeholder="Type here..." autocomplete="off">
+    <br>
+    <button onclick="checkWord()">Submit Word</button>
+    <p id="feedback"></p>
+    <p>Progress: <span id="progress">0</span>/5</p>
+  </div>
+
+  <!-- GAME SHOP SECTION -->
+  <div id="shop-section" class="card">
+    <h2>🎮 Mini-Game Shop</h2>
+    <button id="btn-flappy" onclick="unlockGame('flappy', 5)">Unlock Flappy Bird (5 ⭐)</button>
+    <button id="btn-jumping" onclick="unlockGame('jumping', 5)">Unlock Jumping Game (5 ⭐)</button>
+    <button id="btn-drawing" onclick="unlockGame('drawing', 3)">Unlock Drawing Pad (3 ⭐)</button>
+  </div>
+
+  <!-- MINI-GAME ARENA -->
+  <div id="game-arena" class="card hidden">
+    <h2 id="game-title">Mini-Game</h2>
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <br>
+    <button onclick="exitGame()">Back to Tasks</button>
+  </div>
+
+<script>
+  let stars = 0;
+  let wordIndex = 0;
+  const wordList = ["APPLE", "JUMP", "STAR", "GAME", "WRITE"];
+  let unlocked = { flappy: false, jumping: false, drawing: false };
+  
+  let gameLoopId = null;
+  let timerId = null;
+  let activeGame = null;
+
+  // Initialize Word
+  document.getElementById("word-prompt").innerText = wordList[wordIndex];
+
+  function checkWord() {
+    const input = document.getElementById("word-input").value.trim().toUpperCase();
+    if (input === wordList[wordIndex]) {
+      stars += 2;
+      wordIndex++;
+      document.getElementById("stars").innerText = stars;
+      document.getElementById("feedback").innerText = "✨ Correct! +2 Stars";
+      document.getElementById("word-input").value = "";
+      document.getElementById("progress").innerText = wordIndex;
+
+      if (wordIndex >= wordList.length) {
+        document.getElementById("feedback").innerText = "🎉 All tasks done! Visit the shop to play!";
+        wordIndex = 0;
+      }
+      document.getElementById("word-prompt").innerText = wordList[wordIndex];
+    } else {
+      document.getElementById("feedback").innerText = "❌ Try again!";
+    }
+  }
+
+  function unlockGame(game, cost) {
+    if (unlocked[game]) {
+      playGame(game);
+      return;
+    }
+    if (stars >= cost) {
+      stars -= cost;
+      unlocked[game] = true;
+      document.getElementById("stars").innerText = stars;
+      document.getElementById(`btn-${game}`).innerText = `Play ${game.toUpperCase()}`;
+      playGame(game);
+    } else {
+      alert("Not enough stars! Complete more spelling tasks.");
+    }
+  }
+
+  function playGame(game) {
+    activeGame = game;
+    document.getElementById("task-section").classList.add("hidden");
+    document.getElementById("shop-section").classList.add("hidden");
+    document.getElementById("game-arena").classList.remove("hidden");
+    document.getElementById("game-title").innerText = game.toUpperCase();
+
+    // 3-Minute Play Timer setup (180 seconds)
+    let timeLeft = 180;
+    document.getElementById("timer-display").innerText = `Time remaining: 3:00`;
+    
+    clearInterval(timerId);
+    timerId = setInterval(() => {
+      timeLeft--;
+      let m = Math.floor(timeLeft / 60);
+      let s = timeLeft % 60;
+      document.getElementById("timer-display").innerText = `Time remaining: ${m}:${s < 10 ? '0' : ''}${s}`;
+      
+      if (timeLeft <= 0) {
+        alert("⏰ Time is up! Returning to practice tasks.");
+        exitGame();
+      }
+    }, 1000);
+
+    // Launch requested game logic
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    clearInterval(gameLoopId);
+    
+    if (game === 'drawing') initDrawing(canvas, ctx);
+    if (game === 'flappy') initFlappy(canvas, ctx);
+    if (game === 'jumping') initJumping(canvas, ctx);
+  }
+
+  function exitGame() {
+    clearInterval(gameLoopId);
+    clearInterval(timerId);
+    document.getElementById("timer-display").innerText = "";
+    document.getElementById("game-arena").classList.add("hidden");
+    document.getElementById("task-section").classList.remove("hidden");
+    document.getElementById("shop-section").classList.remove("hidden");
+  }
+
+  // --- DRAWING GAME ---
+  function initDrawing(canvas, ctx) {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let drawing = false;
+    canvas.onmousedown = () => drawing = true;
+    canvas.onmouseup = () => { drawing = false; ctx.beginPath(); };
+    canvas.onmousemove = (e) => {
+      if (!drawing) return;
+      const rect = canvas.getBoundingClientRect();
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    };
+  }
+
+  // --- FLAPPY BIRD MINI-GAME ---
+  function initFlappy(canvas, ctx) {
+    let birdY = 200, velocity = 0, pipes = [];
+    canvas.onmousedown = () => velocity = -6;
+    
+    gameLoopId = setInterval(() => {
+      velocity += 0.4;
+      birdY += velocity;
+      if (Math.random() < 0.03) pipes.push({ x: 400, top: Math.random() * 150 + 50 });
+
+      ctx.fillStyle = "#70c5ce"; ctx.fillRect(0, 0, 400, 400);
+      ctx.fillStyle = "#ffeb3b"; ctx.beginPath(); ctx.arc(80, birdY, 12, 0, Math.PI*2); ctx.fill();
+
+      ctx.fillStyle = "#4caf50";
+      pipes.forEach(p => {
+        p.x -= 3;
+        ctx.fillRect(p.x, 0, 40, p.top);
+        ctx.fillRect(p.x, p.top + 100, 40, 400);
+      });
+      pipes = pipes.filter(p => p.x > -40);
+      if (birdY > 400 || birdY < 0) birdY = 200;
+    }, 1000 / 30);
+  }
+
+  // --- JUMPING MINI-GAME ---
+  function initJumping(canvas, ctx) {
+    let py = 320, vy = 0, isGrounded = true, obstacleX = 400;
+    window.onkeydown = (e) => { if (e.code === 'Space' && isGrounded) { vy = -12; isGrounded = false; } };
+    canvas.onmousedown = () => { if (isGrounded) { vy = -12; isGrounded = false; } };
+
+    gameLoopId = setInterval(() => {
+      vy += 0.8;
+      py += vy;
+      if (py >= 320) { py = 320; vy = 0; isGrounded = true; }
+      obstacleX -= 5;
+      if (obstacleX < -20) obstacleX = 400;
+
+      ctx.fillStyle = "#e0e0e0"; ctx.fillRect(0, 0, 400, 400);
+      ctx.fillStyle = "#333"; ctx.fillRect(0, 350, 400, 50); // Ground
+      ctx.fillStyle = "#e91e63"; ctx.fillRect(50, py, 30, 30); // Player
+      ctx.fillStyle = "#ff5722"; ctx.fillRect(obstacleX, 320, 20, 30); // Obstacle
+    }, 1000 / 30);
+  }
+</script>
+</body>
+</html>
